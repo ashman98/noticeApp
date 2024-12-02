@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -47,8 +48,6 @@ class AuthController extends Controller
             ]);
         }
 
-
-
     }
 
     // User login
@@ -59,8 +58,8 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|confirmed|min:8',
+            'email' => 'required|string|email|max:255',
+            'password' => 'required|string|min:8',
             'device_name' => 'required',
         ]);
 
@@ -70,7 +69,7 @@ class AuthController extends Controller
 
         $credentials = $request->only('email', 'password');
 
-        if (auth()->attempt($credentials)) {
+        if (Auth::attempt($credentials)) {
             $user = auth()->user();
             $token = $user->createToken($request->device_name)->plainTextToken;
 
@@ -81,5 +80,35 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Invalid credentials'], 401);
+    }
+
+    public function logout(Request $request)
+    {
+        try {
+            // Check if the user is authenticated
+            $user = Auth::user();
+
+            if ($user) {
+                // Revoke the token for the current user
+                $user->tokens->each(function ($token) {
+                    $token->delete();
+                });
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'User logged out successfully',
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User is not authenticated',
+            ], 401);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred while logging out',
+            ], 500);
+        }
     }
 }
